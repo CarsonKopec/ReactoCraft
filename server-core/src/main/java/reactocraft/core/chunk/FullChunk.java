@@ -1,26 +1,45 @@
 package reactocraft.core.chunk;
 
+import reactor.core.publisher.Mono;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FullChunk {
+public class FullChunk implements Serializable {
     public static final int CHUNK_SIZE = 16;
     public static final int HEIGHT = 64;
     private static final int SECTION_COUNT = HEIGHT / ChunkSection.SECTION_SIZE;
 
-    private final List<ChunkSection> sections;
+    public final List<ChunkSection> sections;
     private final int chunkX, chunkZ;
 
-    private boolean isLoaded;
+    private transient boolean isLoaded;
+    private transient WeakReference<ChunkManager> managerRef;
 
     public FullChunk(int chunkX, int chunkZ) {
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
         this.isLoaded = false;
 
-        sections = new ArrayList<>();
+        this.sections = new ArrayList<>();
         for (int i = 0; i < SECTION_COUNT; i++) {
             sections.add(new ChunkSection(i));
+        }
+    }
+
+    public void setManager(ChunkManager manager) {
+        this.managerRef = new WeakReference<>(manager);
+    }
+
+    private void notifyManagerDirty(int x, int y, int z) {
+        if (managerRef != null) {
+            ChunkManager mgr = managerRef.get();
+            if (mgr != null) {
+                mgr.markChunkDirty(chunkX, chunkZ, x, y, z);
+            }
         }
     }
 
@@ -34,15 +53,20 @@ public class FullChunk {
     public void setBlock(int x, int y, int z, int blockId) {
         int sectionY = y / ChunkSection.SECTION_SIZE;
         int localY = y % ChunkSection.SECTION_SIZE;
-        ChunkSection section = getSection(sectionY);
-        section.setBlock(x, localY, z, blockId);
+
+        int currentBlock = getBlock(x, localY, z);
+        if (currentBlock == blockId) {
+            return;
+        }
+        getSection(sectionY).setBlock(x, localY, z, blockId);
+
+        notifyManagerDirty(x, y, z);
     }
 
     public int getBlock(int x, int y, int z) {
         int sectionY = y / ChunkSection.SECTION_SIZE;
         int localY = y % ChunkSection.SECTION_SIZE;
-        ChunkSection section = getSection(sectionY);
-        return section.getBlock(x, localY, z);
+        return getSection(sectionY).getBlock(x, localY, z);
     }
 
     public byte[] getRawData() {
@@ -58,12 +82,10 @@ public class FullChunk {
 
     public void load() {
         this.isLoaded = true;
-        // Load additional chunk data if necessary
     }
 
     public void unload() {
         this.isLoaded = false;
-        // Unload additional chunk data if necessary
     }
 
     public boolean isLoaded() {
@@ -76,5 +98,13 @@ public class FullChunk {
 
     public int getChunkZ() {
         return chunkZ;
+    }
+
+    public Mono<Void> saveAsync(ChunkCache cache) {
+        return cache.saveChunkToDisk(this);
+    }
+
+    public static Mono<FullChunk> loadAsync(ChunkCache cache, int chunkX, int chunkZ) {
+        return cache.loadChunkFromDisk(chunkX, chunkZ);
     }
 }

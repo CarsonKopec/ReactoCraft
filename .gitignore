@@ -5,8 +5,8 @@ build/
 !**/src/test/**/build/
 
 ### Native-WorldGen ###
-native-worldgen/target
-native-worldgen/.idea
+rust-native/target
+rust-native/.idea
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

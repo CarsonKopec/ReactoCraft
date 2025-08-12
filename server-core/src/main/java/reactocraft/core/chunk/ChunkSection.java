@@ -38,6 +38,10 @@ public class ChunkSection {
         return blocks;
     }
 
+    public void setRawData(byte[] data) {
+        System.arraycopy(data, 0, this.blocks, 0, data.length);
+    }
+
     public int getYIndex() {
         return yIndex;
     }

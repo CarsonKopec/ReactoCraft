@@ -1,42 +1,50 @@
 package reactocraft.core;
 
-import com.sun.jna.Pointer;
-import com.sun.jna.ptr.IntByReference;
+import reactocraft.core.chunk.ChunkManager;
 import reactocraft.core.chunk.FullChunk;
-import reactor.core.publisher.Flux;
-
-import java.time.Duration;
+import reactor.core.publisher.Mono;
 
 public class Server {
 
     public static void main(String[] args) {
-        System.out.println("Starting ReactoCraft...");
+        System.out.println("Starting ReactoCraft server...");
 
-        FullChunk fullChunk = new FullChunk(0, 0);
+        ChunkManager chunkManager = new ChunkManager();
+        chunkManager.startAutoGc();
 
-        Flux.interval(Duration.ofMillis(50))
-                .doOnNext(tick -> {
-                    IntByReference lenRef = new IntByReference();
-                    Pointer ptr = IWorldGen.INSTANCE.generate_flat_chunk(0, 0, lenRef);
-                    byte[] chunkData = ptr.getByteArray(0, lenRef.getValue());
+        // Load chunk 0,0
+        Mono<FullChunk> chunkMono = chunkManager.getChunk(0, 0);
 
-                    fullChunk.load();
-                    for (int y = 0; y < FullChunk.HEIGHT; y++) {
-                        for (int z = 0; z < FullChunk.CHUNK_SIZE; z++) {
-                            for (int x = 0; x < FullChunk.CHUNK_SIZE; x++) {
-                                int index = y * FullChunk.CHUNK_SIZE * FullChunk.CHUNK_SIZE + z * FullChunk.CHUNK_SIZE + x;
-                                if (index >= chunkData.length) {
-                                    continue;
-                                }
-                                int blockId = chunkData[index] & 0xFF;
-                                fullChunk.setBlock(x, y, z, blockId);
-                            }
-                        }
-                    }
-                    IWorldGen.INSTANCE.free_buffer(ptr, lenRef.getValue());
+        chunkMono.subscribe(chunk -> {
+            System.out.println("Chunk loaded: " + chunk.getChunkX() + "," + chunk.getChunkZ());
 
-                    System.out.println("Full chunk loaded and populated!");
-                })
-                .blockLast();
+            // Change some blocks to test partial save
+            chunk.setBlock(1, 10, 1, 5);
+            chunk.setBlock(2, 10, 2, 7);
+
+            // Wait and trigger a manual save (just for demo)
+            try {
+                Thread.sleep(35000); // wait 35s for auto-save to pick it up
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("Test complete. Listing loaded chunks:");
+            chunkManager.listLoadedChunks();
+
+            // Cleanup: unload all chunks gracefully
+            chunkManager.unloadAllChunks()
+                    .doFinally(signal -> {
+                        System.out.println("All chunks unloaded. Stopping GC.");
+                        chunkManager.stopAutoGc();
+                    })
+                    .block();
+        });
+
+        try {
+            Thread.sleep(60000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

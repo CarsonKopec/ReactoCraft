@@ -4,6 +4,7 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://jitpack.io/") }
 }
 
 dependencies {
@@ -12,6 +13,7 @@ dependencies {
 
     implementation("net.java.dev.jna:jna:5.12.1")
     implementation("io.projectreactor:reactor-core:3.8.0-M5")
+    implementation("com.github.Querz:NBT:6.1")
 }
 
 java {
