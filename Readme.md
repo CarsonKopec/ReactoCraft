@@ -44,8 +44,8 @@ reactocraft/
 ## 🎮 Goals
 
 - ✅ Generate and print chunks using native Rust logic
-- 🚧 Load/unload chunks asynchronously
-- 🚧 Implement in-memory + disk chunk caching
+- ✅ Load/unload chunks asynchronously
+- ✅ Implement in-memory + disk chunk caching
 - ⏳ Build a custom networking layer for Minecraft clients
 - ⏳ Implement basic player simulation and entity logic
 
